@@ -1,0 +1,19 @@
+# Environment files
+.env
+**/.env
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Secrets do Kubernetes
+**/secret.yaml
+**/*-secret.yaml
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
