@@ -1,15 +1,15 @@
-const userService = require('../services/userService');
+const orderService = require('../services/orderService');
 
 const index = async (req, res) => {
     try {
-        const users = await userService.getAllUsers();
+        const orders = await orderService.getAllOrders();
 
         return res.status(200).json({
-            service: 'users-api',
-            data: users,
+            service: 'orders-api',
+            data: orders,
         });
     } catch (error) {
-        console.error('Erro ao listar usuários:', error);
+        console.error('Erro ao listar pedidos:', error);
 
         return res.status(500).json({
             error: 'Erro interno do servidor',
@@ -19,20 +19,20 @@ const index = async (req, res) => {
 
 const show = async (req, res) => {
     try {
-        const user = await userService.getUserById(req.params.id);
+        const order = await orderService.getOrderById(req.params.id);
 
-        if (!user) {
+        if (!order) {
             return res.status(404).json({
-                error: 'Usuário não encontrado',
+                error: 'Pedido não encontrado',
             });
         }
 
         return res.status(200).json({
-            service: 'users-api',
-            data: user,
+            service: 'orders-api',
+            data: order,
         });
     } catch (error) {
-        console.error('Erro ao buscar usuário:', error);
+        console.error('Erro ao buscar pedido:', error);
 
         return res.status(500).json({
             error: 'Erro interno do servidor',
@@ -42,11 +42,11 @@ const show = async (req, res) => {
 
 const create = async (req, res) => {
     try {
-        const user = await userService.createUser(req.body);
+        const order = await orderService.createOrder(req.body);
 
         return res.status(201).json({
-            service: 'users-api',
-            data: user,
+            service: 'orders-api',
+            data: order,
         });
     } catch (error) {
         if (error.statusCode === 400) {
@@ -55,13 +55,13 @@ const create = async (req, res) => {
             });
         }
 
-        if (error.code === '23505') {
-            return res.status(409).json({
-                error: 'E-mail já cadastrado',
+        if (error.code === '23503') {
+            return res.status(400).json({
+                error: 'Usuário informado não existe',
             });
         }
 
-        console.error('Erro ao criar usuário:', error);
+        console.error('Erro ao criar pedido:', error);
 
         return res.status(500).json({
             error: 'Erro interno do servidor',
@@ -71,20 +71,20 @@ const create = async (req, res) => {
 
 const update = async (req, res) => {
     try {
-        const user = await userService.updateUser(
+        const order = await orderService.updateOrder(
             req.params.id,
             req.body
         );
 
-        if (!user) {
+        if (!order) {
             return res.status(404).json({
-                error: 'Usuário não encontrado',
+                error: 'Pedido não encontrado',
             });
         }
 
         return res.status(200).json({
-            service: 'users-api',
-            data: user,
+            service: 'orders-api',
+            data: order,
         });
     } catch (error) {
         if (error.statusCode === 400) {
@@ -93,13 +93,13 @@ const update = async (req, res) => {
             });
         }
 
-        if (error.code === '23505') {
-            return res.status(409).json({
-                error: 'E-mail já cadastrado',
+        if (error.code === '23503') {
+            return res.status(400).json({
+                error: 'Usuário informado não existe',
             });
         }
 
-        console.error('Erro ao atualizar usuário:', error);
+        console.error('Erro ao atualizar pedido:', error);
 
         return res.status(500).json({
             error: 'Erro interno do servidor',
@@ -107,28 +107,22 @@ const update = async (req, res) => {
     }
 };
 
-const deleteUser = async (req, res) => {
+const deleteOrder = async (req, res) => {
     try {
-        const user = await userService.deleteUser(req.params.id);
+        const order = await orderService.deleteOrder(req.params.id);
 
-        if (!user) {
+        if (!order) {
             return res.status(404).json({
-                error: 'Usuário não encontrado',
+                error: 'Pedido não encontrado',
             });
         }
 
         return res.status(200).json({
-            service: 'users-api',
-            data: user,
+            service: 'orders-api',
+            data: order,
         });
     } catch (error) {
-        if (error.code === '23503') {
-            return res.status(409).json({
-                error: 'Não é possível excluir o usuário, pois existem pedidos associados a ele',
-            });
-        }
-
-        console.error('Erro ao excluir usuário:', error);
+        console.error('Erro ao excluir pedido:', error);
 
         return res.status(500).json({
             error: 'Erro interno do servidor',
@@ -141,5 +135,5 @@ module.exports = {
     show,
     create,
     update,
-    deleteUser,
+    deleteOrder,
 };
