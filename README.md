@@ -33,50 +33,41 @@ Dessa forma, uma aplicação pode localizar outra pelo nome do serviço, sem pre
 
 Isso é importante porque Pods são recursos temporários e seus endereços podem mudar durante reinicializações, atualizações ou substituições realizadas pelo Kubernetes.
 
-## Arquitetura atual
+## Arquitetura Kubernetes
 
-No ambiente local, o Kubernetes é executado através do Minikube.
+O ambiente local utiliza Kubernetes através do Minikube para executar e
+orquestrar as APIs do projeto.
 
-```mermaid
-flowchart TD
-    CLIENT["Cliente"] --> INGRESS["Ingress"]
+Cada API possui seu próprio Deployment e Service, com múltiplas réplicas,
+health checks e configurações externas através de ConfigMaps e Secrets.
 
-    subgraph K8S["Cluster Kubernetes"]
-        INGRESS --> USERS_SERVICE["Users Service"]
-        INGRESS --> ORDERS_SERVICE["Orders Service"]
-
-        USERS_SERVICE --> USERS["Users API"]
-        ORDERS_SERVICE --> ORDERS["Orders API"]
-    end
-
-    USERS --> DB[("PostgreSQL")]
-    ORDERS --> DB
-```
-
-O cliente não acessa diretamente os Pods das APIs.
-
-As requisições entram pelo **Ingress**, que identifica o destino e encaminha o tráfego para o Service correspondente.
+A entrada HTTP do cluster utiliza Kubernetes Gateway API com Envoy Gateway.
 
 ```text
-/api/users
-     ↓
-Ingress
-     ↓
-users-service
-     ↓
-Users API
+                        Cliente
+                           |
+                           v
+                     Envoy Proxy
+                           |
+                           v
+                     Gateway API
+                           |
+                 +---------+---------+
+                 |                   |
+          /api/users            /api/orders
+                 |                   |
+                 v                   v
+          users-service        orders-service
+                 |                   |
+             +---+---+           +---+---+
+             |       |           |       |
+           Pod       Pod       Pod       Pod
+             |                       |
+             +-----------+-----------+
+                         |
+                         v
+                     PostgreSQL
 
-
-/api/orders
-     ↓
-Ingress
-     ↓
-orders-service
-     ↓
-Orders API
-```
-
-Os Services fornecem um endereço estável dentro do cluster enquanto o Kubernetes pode criar, remover ou substituir Pods sem que os consumidores precisem conhecer seus endereços individuais.
 
 ## Comunicação interna
 
@@ -148,22 +139,72 @@ erDiagram
 
 Cada API possui sua própria imagem Docker e é executada independentemente.
 
-No Kubernetes, os principais componentes utilizados até o momento são:
+No Kubernetes, os principais componentes utilizados atualmente são:
 
-- **Deployment**, responsável por manter as instâncias das aplicações;
-- **Pod**, onde os containers são executados;
-- **Service**, responsável pelo acesso estável aos Pods;
-- **Ingress**, responsável pela entrada HTTP no cluster;
-- **ConfigMap**, utilizado para configurações da aplicação;
+- **Deployment**, responsável por manter o estado desejado e as réplicas das aplicações;
+- **Pod**, onde os containers das APIs são executados;
+- **Service**, responsável por fornecer acesso estável aos Pods;
+- **GatewayClass**, responsável por definir a implementação utilizada pelos Gateways;
+- **Gateway**, responsável por representar o ponto de entrada de tráfego HTTP;
+- **HTTPRoute**, responsável por definir as regras de roteamento para os Services;
+- **ConfigMap**, utilizado para configurações não sensíveis da aplicação;
 - **Secret**, utilizado para informações sensíveis;
 - **Liveness Probe**, utilizada para verificar se a aplicação continua funcionando;
 - **Readiness Probe**, utilizada para determinar se a aplicação está pronta para receber tráfego.
 
-O Kubernetes também permite substituir uma instância da aplicação sem que o consumidor precise conhecer o novo endereço do Pod.
+Os Deployments mantêm múltiplas réplicas das APIs e permitem que novas versões
+sejam implantadas progressivamente através de Rolling Updates.
+
+Os Services fornecem endereços estáveis para as aplicações, evitando que
+consumidores ou componentes de roteamento precisem conhecer diretamente os
+endereços IP dos Pods.
+
+A arquitetura de entrada HTTP utiliza Kubernetes Gateway API com Envoy Gateway:
+
+```text
+Cliente
+   │
+   ▼
+Envoy Proxy
+   │
+   ▼
+Gateway API
+   │
+   └── HTTPRoute
+       ├── /api/users  → users-service  → Users Pods
+       └── /api/orders → orders-service → Orders Pods
+                                      │
+                                      ▼
+                                  PostgreSQL
+```
+
+### Migração do Ingress-NGINX para Gateway API
+
+O laboratório utilizava inicialmente Kubernetes Ingress com o controlador
+Ingress-NGINX.
+
+Durante o desenvolvimento e os estudos relacionados à arquitetura Kubernetes,
+foi identificada a aposentadoria oficial do Ingress-NGINX em março de 2026.
+
+Como o controlador deixou de receber novas versões, correções de bugs e
+atualizações para futuras vulnerabilidades de segurança, foi decidido migrar
+a camada de entrada do laboratório para Kubernetes Gateway API.
+
+Para o ambiente local foi adotado o Envoy Gateway como implementação da
+Gateway API.
+
+A migração foi realizada mantendo temporariamente as duas soluções em paralelo.
+Após a validação das operações GET, POST, PUT e DELETE através da nova camada,
+o Ingress-NGINX foi removido do ambiente.
+
+Os detalhes e motivos dessa decisão estão registrados em:
+
+`docs/adr/001-migracao-ingress-nginx-para-gateway-api.md`
 
 ## Segurança
 
-Um dos objetivos principais do projeto é evitar exposição desnecessária dos componentes internos.
+Um dos objetivos principais do projeto é evitar exposição desnecessária dos
+componentes internos.
 
 O princípio adotado é:
 
@@ -174,7 +215,10 @@ Internet
 Ponto de entrada controlado
    │
    ▼
-Serviços internos
+Gateway / Roteamento
+   │
+   ▼
+Services
    │
    ▼
 Aplicações
@@ -185,73 +229,108 @@ Banco de dados
 
 Os Pods não devem ser tratados como servidores públicos individuais.
 
-A aplicação deve possuir uma camada de entrada definida, enquanto a comunicação entre os componentes internos acontece através da rede do ambiente.
+A aplicação possui uma camada de entrada definida, enquanto a comunicação com
+os workloads acontece através dos Services do Kubernetes.
 
-Esse mesmo conceito será levado posteriormente para a Azure.
+Esse mesmo princípio será levado posteriormente para a arquitetura na
+Microsoft Azure, mantendo os componentes internos protegidos e expondo apenas
+os serviços que realmente precisam receber tráfego externo.
 
 ## Evolução para Azure
 
-O ambiente local serve como base para a arquitetura que será implantada na nuvem.
+O ambiente local serve como base para a arquitetura que será implantada na
+nuvem.
 
 A arquitetura planejada deverá utilizar serviços como:
 
-- Azure Container Registry;
-- Azure Kubernetes Service;
+- Azure Container Registry (ACR);
+- Azure Kubernetes Service (AKS);
 - Azure Database for PostgreSQL;
 - Virtual Network;
 - sub-redes privadas;
 - Application Gateway;
-- Web Application Firewall.
+- Web Application Firewall (WAF).
 
 A ideia é evoluir de:
 
 ```text
-Docker + Minikube + PostgreSQL local
+Docker
+   │
+Minikube
+   │
+Gateway API + Envoy Gateway
+   │
+APIs
+   │
+PostgreSQL local
 ```
 
-para:
+para uma arquitetura em Azure:
 
 ```text
 Azure
 │
 ├── camada pública controlada
 │
-├── Kubernetes
+├── Application Gateway / WAF
+│
+├── Kubernetes (AKS)
 │   ├── Users API
 │   └── Orders API
 │
 └── PostgreSQL gerenciado
 ```
 
-mantendo os componentes internos protegidos e expondo apenas aquilo que realmente precisa receber tráfego externo.
+A implementação definitiva da camada de entrada no Azure será definida de
+acordo com a arquitetura e os serviços gerenciados adotados na etapa de
+implantação em nuvem.
 
 ## Próximas etapas
 
 O laboratório continuará evoluindo com:
 
-- implementação do CRUD completo de usuários;
-- implementação do CRUD completo de pedidos;
-- organização interna das APIs em camadas;
 - desenvolvimento de uma interface web para consumir as APIs;
-- criação das imagens para o ambiente de nuvem;
-- publicação no Azure Container Registry;
-- implantação no Azure Kubernetes Service;
+- criação da imagem Docker do frontend;
+- execução do frontend no Kubernetes;
+- integração do frontend com `/api/users` e `/api/orders`;
+- publicação das imagens no Azure Container Registry;
+- implantação das aplicações no Azure Kubernetes Service;
 - utilização do Azure Database for PostgreSQL;
 - configuração da rede privada;
-- implementação da camada de entrada e proteção com Application Gateway e WAF.
+- implementação da camada de entrada e proteção no Azure com Application
+  Gateway e WAF.
 
 ## Tecnologias
 
 - Node.js
+- Express
 - PostgreSQL
 - Docker
 - Docker Compose
 - Kubernetes
 - Minikube
-- NGINX Ingress Controller
+- Kubernetes Gateway API
+- Envoy Gateway
+- Helm
 - Microsoft Azure
 
 ## Status
+
+O backend do ambiente local está funcional e executando no Kubernetes.
+
+As APIs de usuários e pedidos possuem operações CRUD completas, persistência
+em PostgreSQL, múltiplas réplicas, Services, ConfigMaps, Secrets, Liveness
+Probes, Readiness Probes e suporte a Rolling Updates.
+
+A entrada HTTP do cluster utiliza Kubernetes Gateway API com Envoy Gateway.
+As rotas `/api/users` e `/api/orders` foram validadas através da nova
+arquitetura, incluindo operações GET, POST, PUT e DELETE.
+
+O Ingress-NGINX utilizado inicialmente no laboratório foi removido após a
+migração e validação da Gateway API.
+
+A próxima etapa do projeto será o desenvolvimento do frontend para consumir
+as APIs antes da implantação da solução na Microsoft Azure.
 
 O ambiente local já possui as duas APIs executando no Kubernetes e acessando dados persistidos no PostgreSQL.
 
