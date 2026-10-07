@@ -8,6 +8,7 @@ const app = express();
 app.use(express.json());
 
 app.use('/health', healthRoutes);
+app.use('/api/users/health', healthRoutes);
 app.use('/api/users', userRoutes);
 
 app.use((req, res) => {

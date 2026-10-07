@@ -3,12 +3,19 @@ import { computed, onMounted, ref } from 'vue'
 
 import { getOrders } from '@/services/ordersService'
 import { getUsers } from '@/services/usersService'
+import {
+  getOrdersHealth,
+  getUsersHealth,
+  type HealthResponse,
+} from '@/services/healthService'
 
 import type { Order } from '@/types/Order'
 import type { User } from '@/types/User'
 
 const users = ref<User[]>([])
 const orders = ref<Order[]>([])
+const usersHealth = ref<HealthResponse | null>(null)
+const ordersHealth = ref<HealthResponse | null>(null)
 
 const loading = ref(true)
 const error = ref('')
@@ -27,6 +34,20 @@ const revenue = computed(() => {
     .reduce((total, order) => total + Number(order.total), 0)
 })
 
+const usersApiOnline = computed(
+  () => usersHealth.value?.status === 'ready',
+)
+
+const ordersApiOnline = computed(
+  () => ordersHealth.value?.status === 'ready',
+)
+
+const databaseOnline = computed(
+  () =>
+    usersHealth.value?.database === 'connected' &&
+    ordersHealth.value?.database === 'connected',
+)
+
 const recentOrders = computed(() => {
   return [...orders.value]
     .sort(
@@ -42,13 +63,20 @@ async function loadDashboard() {
   error.value = ''
 
   try {
-    const [usersResponse, ordersResponse] = await Promise.all([
+    const [
+      usersResponse,
+      ordersResponse,
+      usersHealthResponse, ordersHealthResponse] = await Promise.all([
       getUsers(),
       getOrders(),
+      getUsersHealth(),
+      getOrdersHealth(),
     ])
 
     users.value = usersResponse.data
     orders.value = ordersResponse.data
+    usersHealth.value = usersHealthResponse
+    ordersHealth.value = ordersHealthResponse
   } catch (err) {
     error.value =
       err instanceof Error
@@ -277,7 +305,7 @@ onMounted(loadDashboard)
 
             <span class="infra-badge">
               <span class="status-dot"></span>
-              Ativo
+               {{ usersApiOnline ? 'Ativo' : 'Indisponível' }}
             </span>
           </div>
 
@@ -289,7 +317,7 @@ onMounted(loadDashboard)
 
             <span class="infra-badge">
               <span class="status-dot"></span>
-              Ativo
+              {{ ordersApiOnline ? 'Ativo' : 'Indisponível' }}
             </span>
           </div>
 
@@ -301,7 +329,7 @@ onMounted(loadDashboard)
 
             <span class="infra-badge">
               <span class="status-dot"></span>
-              Conectado
+              {{ databaseOnline ? 'Conectado' : 'Indisponível' }}
             </span>
           </div>
 
