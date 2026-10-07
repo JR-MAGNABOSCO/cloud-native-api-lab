@@ -25,3 +25,11 @@ spec:
       backendRefs:
         - name: orders-service
           port: 80
+
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: frontend-service
+          port: 80

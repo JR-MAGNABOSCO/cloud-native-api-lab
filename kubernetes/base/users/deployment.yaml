@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: users-api
-          image: cloud-native-users-api:1.4.0
+          image: cloud-native-users-api:1.5.0
           imagePullPolicy: IfNotPresent
 
           ports:
