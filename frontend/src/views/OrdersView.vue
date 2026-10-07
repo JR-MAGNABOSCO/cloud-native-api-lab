@@ -150,134 +150,242 @@ onMounted(loadData)
 
 <template>
   <main>
-    <h1>Pedidos</h1>
-
-    <p>Gerenciamento dos pedidos cadastrados no sistema.</p>
-
-    <h2>
-      {{ editingOrderId ? 'Editar pedido' : 'Novo pedido' }}
-    </h2>
-
-    <form @submit.prevent="handleSubmit">
-      <div>
-        <label for="user">Cliente</label>
-
-        <select
-          id="user"
-          v-model="form.user_id"
-          required
-        >
-          <option value="" disabled>
-            Selecione um cliente
-          </option>
-
-          <option
-            v-for="user in users"
-            :key="user.id"
-            :value="user.id"
-          >
-            {{ user.name }}
-          </option>
-        </select>
+    <div class="page-header">
+      <div class="page-title">
+        <h1>Pedidos</h1>
+        <p>Acompanhe e gerencie os pedidos da plataforma.</p>
       </div>
 
-      <div>
-        <label for="total">Valor</label>
+      <div class="page-counter">
+        <span>{{ orders.length }}</span>
+        pedidos cadastrados
+      </div>
+    </div>
 
-        <input
-          id="total"
-          v-model.number="form.total"
-          type="number"
-          min="0.01"
-          step="0.01"
-          required
-        >
+    <!-- Formulário -->
+    <section class="card">
+      <div class="card-header">
+        <h2>
+          {{ editingOrderId ? 'Editar pedido' : 'Novo pedido' }}
+        </h2>
+
+        <p>
+          {{
+            editingOrderId
+              ? 'Atualize as informações do pedido selecionado.'
+              : 'Cadastre um novo pedido na plataforma.'
+          }}
+        </p>
       </div>
 
-      <div>
-        <label for="status">Status</label>
+      <form @submit.prevent="handleSubmit">
+        <div class="form-grid orders-form-grid">
+          <div class="form-group">
+            <label for="user">Cliente</label>
 
-        <select
-          id="status"
-          v-model="form.status"
-          required
-        >
-          <option value="pending">Pendente</option>
-          <option value="paid">Pago</option>
-          <option value="shipped">Enviado</option>
-        </select>
-      </div>
-
-      <button
-        type="submit"
-        :disabled="saving"
-      >
-        {{
-          saving
-            ? 'Salvando...'
-            : editingOrderId
-              ? 'Salvar alterações'
-              : 'Cadastrar'
-        }}
-      </button>
-
-      <button
-        v-if="editingOrderId"
-        type="button"
-        @click="cancelEditing"
-      >
-        Cancelar
-      </button>
-    </form>
-
-    <p v-if="loading">
-      Carregando pedidos...
-    </p>
-
-    <p v-if="error">
-      {{ error }}
-    </p>
-
-    <table v-if="!loading">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Cliente</th>
-          <th>Valor</th>
-          <th>Status</th>
-          <th>Data</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        <tr
-          v-for="order in orders"
-          :key="order.id"
-        >
-          <td>{{ order.id }}</td>
-          <td>{{ order.customer }}</td>
-          <td>{{ formatCurrency(order.total) }}</td>
-          <td>{{ statusLabel(order.status) }}</td>
-          <td>{{ formatDate(order.created_at) }}</td>
-
-          <td>
-            <button
-              type="button"
-              @click="startEditing(order)"
+            <select
+              id="user"
+              v-model="form.user_id"
+              class="form-control"
+              required
             >
-              Editar
+              <option value="" disabled>
+                Selecione um cliente
+              </option>
+
+              <option
+                v-for="user in users"
+                :key="user.id"
+                :value="user.id"
+              >
+                {{ user.name }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="total">Valor do pedido</label>
+
+            <input
+              id="total"
+              v-model.number="form.total"
+              class="form-control"
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="0,00"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="status">Status</label>
+
+            <select
+              id="status"
+              v-model="form.status"
+              class="form-control"
+              required
+            >
+              <option value="pending">
+                Pendente
+              </option>
+
+              <option value="paid">
+                Pago
+              </option>
+
+              <option value="shipped">
+                Enviado
+              </option>
+            </select>
+          </div>
+
+          <div class="form-actions">
+            <button
+              class="btn btn-primary"
+              type="submit"
+              :disabled="saving"
+            >
+              {{
+                saving
+                  ? 'Salvando...'
+                  : editingOrderId
+                    ? 'Salvar alterações'
+                    : 'Cadastrar pedido'
+              }}
             </button>
 
             <button
+              v-if="editingOrderId"
+              class="btn btn-secondary"
               type="button"
-              @click="handleDelete(order)"
+              @click="cancelEditing"
             >
-              Excluir
+              Cancelar
             </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+          </div>
+        </div>
+      </form>
+
+      <div
+        v-if="error"
+        class="alert alert-error"
+      >
+        {{ error }}
+      </div>
+    </section>
+
+    <!-- Tabela -->
+    <section class="card table-card">
+      <div class="card-header table-header">
+        <div>
+          <h2>Pedidos cadastrados</h2>
+          <p>Histórico dos pedidos registrados na plataforma.</p>
+        </div>
+
+        <span class="record-count">
+          {{ orders.length }} registros
+        </span>
+      </div>
+
+      <div
+        v-if="loading"
+        class="loading"
+      >
+        Carregando pedidos...
+      </div>
+
+      <div
+        v-else
+        class="table-wrapper"
+      >
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Pedido</th>
+              <th>Cliente</th>
+              <th>Valor</th>
+              <th>Status</th>
+              <th>Data</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr
+              v-for="order in orders"
+              :key="order.id"
+            >
+              <td>
+                <span class="id-column">
+                  #{{ order.id }}
+                </span>
+              </td>
+
+              <td>
+                <strong class="customer-name">
+                  {{ order.customer }}
+                </strong>
+              </td>
+
+              <td>
+                <strong class="order-value">
+                  {{ formatCurrency(order.total) }}
+                </strong>
+              </td>
+
+              <td>
+                <span
+                  class="badge"
+                  :class="{
+                    'badge-warning': order.status === 'pending',
+                    'badge-success': order.status === 'paid',
+                    'badge-info': order.status === 'shipped',
+                  }"
+                >
+                  <span class="badge-dot"></span>
+
+                  {{ statusLabel(order.status) }}
+                </span>
+              </td>
+
+              <td class="secondary-text">
+                {{ formatDate(order.created_at) }}
+              </td>
+
+              <td>
+                <div class="table-actions">
+                  <button
+                    class="btn btn-edit"
+                    type="button"
+                    @click="startEditing(order)"
+                  >
+                    Editar
+                  </button>
+
+                  <button
+                    class="btn btn-danger"
+                    type="button"
+                    @click="handleDelete(order)"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <tr v-if="orders.length === 0">
+              <td
+                colspan="6"
+                class="empty-state"
+              >
+                Nenhum pedido cadastrado.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </main>
 </template>
