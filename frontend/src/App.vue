@@ -1,4 +1,8 @@
 <script setup lang="ts">
+const isAzure = import.meta.env.VITE_DEPLOY_ENV === 'azure'
+
+const environmentName = isAzure ? 'Ambiente Azure' : 'Ambiente local'
+const kubernetesName = isAzure ? 'Kubernetes / AKS' : 'Kubernetes / Minikube'
 import { RouterLink, RouterView } from 'vue-router'
 </script>
 
@@ -40,8 +44,8 @@ import { RouterLink, RouterView } from 'vue-router'
           <span class="environment-dot"></span>
 
           <div>
-            <strong>Ambiente local</strong>
-            <span>Kubernetes / Minikube</span>
+            <strong>{{ environmentName }}</strong>
+            <span>{{ kubernetesName }}</span>
           </div>
         </div>
       </div>

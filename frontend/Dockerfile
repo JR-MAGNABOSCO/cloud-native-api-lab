@@ -7,6 +7,10 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+
+ARG VITE_DEPLOY_ENV=local
+ENV VITE_DEPLOY_ENV=${VITE_DEPLOY_ENV}
+
 RUN npm run build
 
 # Stage 2 - Runtime

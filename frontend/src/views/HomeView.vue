@@ -12,6 +12,8 @@ import {
 import type { Order } from '@/types/Order'
 import type { User } from '@/types/User'
 
+const isAzure = import.meta.env.VITE_DEPLOY_ENV === 'azure'
+
 const users = ref<User[]>([])
 const orders = ref<Order[]>([])
 const usersHealth = ref<HealthResponse | null>(null)
@@ -119,7 +121,7 @@ onMounted(loadDashboard)
 
       <div class="dashboard-environment">
         <span class="status-dot"></span>
-        Ambiente local
+        {{ isAzure ? 'Ambiente Azure' : 'Ambiente local' }}
       </div>
     </div>
 
@@ -336,11 +338,11 @@ onMounted(loadDashboard)
           <div class="infrastructure-item">
             <div>
               <strong>Kubernetes</strong>
-              <span>Minikube</span>
+              <span>{{ isAzure ? 'AKS' : 'Minikube' }}</span>
             </div>
 
             <span class="technology-badge">
-              Local
+              {{ isAzure ? 'AKS' : 'Minikube' }}
             </span>
           </div>
 
